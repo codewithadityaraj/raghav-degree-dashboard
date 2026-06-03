@@ -1,41 +1,33 @@
+const XLSX = require("xlsx");
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-const SHEETS = {
-  tokenCohort:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=262950175&single=true&output=csv",
-  tokenMonthly:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=654588083&single=true&output=csv",
-  fpCohort:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1691431588&single=true&output=csv",
-  fpMonthly:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1412605711&single=true&output=csv",
-  tlTokenCohort:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1306601082&single=true&output=csv",
-  tlTokenMonthly:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=86980914&single=true&output=csv",
-  tlFpCohort:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1400812786&single=true&output=csv",
-  tlFpMonthly:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=748961899&single=true&output=csv",
-  gmTokenCohort:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=267153274&single=true&output=csv",
-  gmTokenMonthly:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=100212730&single=true&output=csv",
-  gmFpCohort:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1622927752&single=true&output=csv",
-  gmFpMonthly:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1051256120&single=true&output=csv",
-  bdaTokenCohort:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=312446060&single=true&output=csv",
-  bdaTokenMonthly:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=454256125&single=true&output=csv",
-  bdaFpCohort:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1252658296&single=true&output=csv",
-  bdaFpMonthly:
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1981205156&single=true&output=csv",
+const WORKBOOK_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSJT6jqlHH3w_wK8dAr3T0zEUKCknrquctgJISXRv0U6d9OeJEDmRZdA-DfEzjhQlZVMpGD8XpBL5hU/pub?output=xlsx";
+
+/** api key -> workbook tab name candidates (first match wins) */
+const SHEET_TABS = {
+  tokenCohort: ["Uni Program Token Cohort"],
+  tokenMonthly: ["Uni Program Token Month"],
+  fpCohort: ["Uni Program Full Payment Cohort"],
+  fpMonthly: ["Uni Program Full Payment Month"],
+  tlTokenCohort: ["TL Wise Cohort Token"],
+  tlTokenMonthly: ["TL Wise Monthly Token"],
+  tlFpCohort: ["TL Wise Cohort Full"],
+  tlFpMonthly: ["TL Wise Monthy Full"],
+  gmTokenCohort: ["GM Wise Cohort Token"],
+  gmTokenMonthly: ["GM Wise Monthly Token"],
+  gmFpCohort: ["GM Wise Cohort Full"],
+  gmFpMonthly: ["GM Wise Monthy Full"],
+  bdaTokenCohort: ["BDA Wise Cohort Token"],
+  bdaTokenMonthly: ["BDA Wise Monthly Token"],
+  bdaFpCohort: ["BDA Wise Cohort Full"],
+  bdaFpMonthly: ["BDA Wise Monthy Full"],
 };
 
-const cache = new Map();
+let workbookCache = null;
+let workbookCacheAt = 0;
+const rowsCache = new Map();
 
 function response(statusCode, body) {
   return {
@@ -48,6 +40,50 @@ function response(statusCode, body) {
     },
     body: JSON.stringify(body),
   };
+}
+
+function normalizeName(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function resolveSheetName(workbook, candidates) {
+  const names = workbook.SheetNames || [];
+  const normalized = new Map(names.map((n) => [normalizeName(n), n]));
+  for (const candidate of candidates) {
+    const exact = normalized.get(normalizeName(candidate));
+    if (exact) return exact;
+  }
+  for (const candidate of candidates) {
+    const needle = normalizeName(candidate);
+    const fuzzy = names.find(
+      (n) => normalizeName(n).startsWith(needle) || needle.startsWith(normalizeName(n))
+    );
+    if (fuzzy) return fuzzy;
+  }
+  return null;
+}
+
+function clearWorkbookCache() {
+  workbookCache = null;
+  workbookCacheAt = 0;
+  rowsCache.clear();
+}
+
+async function loadWorkbook(forceRefresh = false) {
+  const now = Date.now();
+  if (forceRefresh) clearWorkbookCache();
+  if (workbookCache && now - workbookCacheAt < CACHE_TTL_MS) return workbookCache;
+
+  const res = await fetch(WORKBOOK_URL, {
+    headers: { "User-Agent": "NetlifyFunction/1.0" },
+  });
+  if (!res.ok) throw new Error(`Workbook fetch failed: ${res.status}`);
+
+  const buffer = await res.arrayBuffer();
+  workbookCache = XLSX.read(buffer, { type: "array" });
+  workbookCacheAt = now;
+  rowsCache.clear();
+  return workbookCache;
 }
 
 function parseCsvLine(line) {
@@ -98,18 +134,26 @@ function parseCsv(text) {
   return rows;
 }
 
+function sheetToCsv(workbook, sheetName) {
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) throw new Error(`Tab not found: ${sheetName}`);
+  return XLSX.utils.sheet_to_csv(sheet);
+}
+
 async function fetchSheet(key) {
   const now = Date.now();
-  const cached = cache.get(key);
+  const cached = rowsCache.get(key);
   if (cached && now - cached.ts < CACHE_TTL_MS) return cached.rows;
 
-  const url = SHEETS[key];
-  if (!url) throw new Error(`Unknown dataset: ${key}`);
+  const candidates = SHEET_TABS[key];
+  if (!candidates) throw new Error(`Unknown dataset: ${key}`);
 
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch ${key}: ${res.status}`);
-  const rows = parseCsv(await res.text());
-  cache.set(key, { ts: now, rows });
+  const workbook = await loadWorkbook(false);
+  const tabName = resolveSheetName(workbook, candidates);
+  if (!tabName) throw new Error(`Workbook tab not found for ${key}`);
+
+  const rows = parseCsv(sheetToCsv(workbook, tabName));
+  rowsCache.set(key, { ts: now, rows });
   return rows;
 }
 
@@ -150,8 +194,8 @@ async function loadDashboard() {
     fetchSheet("bdaFpMonthly"),
   ]);
 
-  const programs = [...new Set(tokenCohort.map((r) => (r["Program Name"] || "").trim()).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b, undefined, { sensitivity: "base" })
+  const programs = [...new Set(tokenCohort.map((r) => (r["Program Name"] || "").trim()).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })
   );
 
   return {
@@ -193,7 +237,7 @@ exports.handler = async (event) => {
     }
 
     if (route === "refresh") {
-      cache.clear();
+      clearWorkbookCache();
       return response(200, { status: "ok", message: "Cache cleared" });
     }
 
@@ -202,4 +246,3 @@ exports.handler = async (event) => {
     return response(502, { error: err.message || "Unexpected error" });
   }
 };
-

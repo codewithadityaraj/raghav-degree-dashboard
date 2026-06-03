@@ -1,6 +1,6 @@
 """
 Local proxy server for UNI Program Dashboard.
-Fetches Google Sheets CSV exports, caches responses (5 min TTL), serves the static UI.
+Downloads the published Google Sheet workbook (xlsx), reads tabs by name, serves the static UI.
 """
 
 from __future__ import annotations
@@ -8,70 +8,107 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
+import threading
 import time
 from pathlib import Path
+from typing import Optional
+from urllib.request import Request, urlopen
 
-import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from openpyxl import load_workbook
 
 BASE_DIR = Path(__file__).resolve().parent
 CACHE_TTL_SECONDS = 300
 
-SHEETS: dict[str, str] = {
-    "token-cohort": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=262950175&single=true&output=csv"
-    ),
-    "token-monthly": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=654588083&single=true&output=csv"
-    ),
-    "fp-cohort": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1691431588&single=true&output=csv"
-    ),
-    "fp-monthly": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1412605711&single=true&output=csv"
-    ),
-    "tl-token-cohort": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1306601082&single=true&output=csv"
-    ),
-    "tl-token-monthly": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=86980914&single=true&output=csv"
-    ),
-    "tl-fp-cohort": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1400812786&single=true&output=csv"
-    ),
-    "tl-fp-monthly": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=748961899&single=true&output=csv"
-    ),
-    "gm-token-cohort": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=267153274&single=true&output=csv"
-    ),
-    "gm-token-monthly": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=100212730&single=true&output=csv"
-    ),
-    "gm-fp-cohort": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1622927752&single=true&output=csv"
-    ),
-    "gm-fp-monthly": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1051256120&single=true&output=csv"
-    ),
-    "bda-token-cohort": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=312446060&single=true&output=csv"
-    ),
-    "bda-token-monthly": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=454256125&single=true&output=csv"
-    ),
-    "bda-fp-cohort": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1252658296&single=true&output=csv"
-    ),
-    "bda-fp-monthly": (
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTcztb-A37i4VXvWKnATdaFrGPZGf5tQlsYIDgdb7CViBh_TpL0kdst-OVwlEBxISLK1fHob_G86ffr/pub?gid=1981205156&single=true&output=csv"
-    ),
+WORKBOOK_URL = (
+    "https://docs.google.com/spreadsheets/d/e/"
+    "2PACX-1vSJT6jqlHH3w_wK8dAr3T0zEUKCknrquctgJISXRv0U6d9OeJEDmRZdA-DfEzjhQlZVMpGD8XpBL5hU"
+    "/pub?output=xlsx"
+)
+
+# api key -> workbook tab name candidates (first match wins)
+SHEET_TABS: dict[str, list[str]] = {
+    "token-cohort": ["Uni Program Token Cohort"],
+    "token-monthly": ["Uni Program Token Month"],
+    "fp-cohort": ["Uni Program Full Payment Cohort"],
+    "fp-monthly": ["Uni Program Full Payment Month"],
+    "tl-token-cohort": ["TL Wise Cohort Token"],
+    "tl-token-monthly": ["TL Wise Monthly Token"],
+    "tl-fp-cohort": ["TL Wise Cohort Full"],
+    "tl-fp-monthly": ["TL Wise Monthy Full"],
+    "gm-token-cohort": ["GM Wise Cohort Token"],
+    "gm-token-monthly": ["GM Wise Monthly Token"],
+    "gm-fp-cohort": ["GM Wise Cohort Full"],
+    "gm-fp-monthly": ["GM Wise Monthy Full"],
+    "bda-token-cohort": ["BDA Wise Cohort Token"],
+    "bda-token-monthly": ["BDA Wise Monthly Token"],
+    "bda-fp-cohort": ["BDA Wise Cohort Full"],
+    "bda-fp-monthly": ["BDA Wise Monthy Full"],
 }
 
-_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
+_workbook_cache: Optional[object] = None
+_workbook_cache_at: float = 0.0
+_rows_cache: dict[str, tuple[float, list[dict[str, str]]]] = {}
+_workbook_lock = threading.Lock()
+
+
+def _normalize_name(name: str) -> str:
+    return (name or "").strip().lower()
+
+
+def _resolve_sheet_name(sheet_names: list[str], candidates: list[str]) -> Optional[str]:
+    by_norm = {_normalize_name(name): name for name in sheet_names}
+    for candidate in candidates:
+        match = by_norm.get(_normalize_name(candidate))
+        if match:
+            return match
+    for candidate in candidates:
+        needle = _normalize_name(candidate)
+        for name in sheet_names:
+            norm = _normalize_name(name)
+            if norm.startswith(needle) or needle.startswith(norm):
+                return name
+    return None
+
+
+def _clear_workbook_cache() -> None:
+    global _workbook_cache, _workbook_cache_at, _rows_cache
+    with _workbook_lock:
+        _workbook_cache = None
+        _workbook_cache_at = 0.0
+        _rows_cache = {}
+
+
+def _load_workbook(*, force_refresh: bool = False):
+    global _workbook_cache, _workbook_cache_at, _rows_cache
+    now = time.time()
+    with _workbook_lock:
+        if force_refresh:
+            _workbook_cache = None
+            _workbook_cache_at = 0.0
+            _rows_cache = {}
+        elif _workbook_cache is not None and now - _workbook_cache_at < CACHE_TTL_SECONDS:
+            return _workbook_cache
+
+        request = Request(WORKBOOK_URL, headers={"User-Agent": "UniProgramDashboard/1.0"})
+        with urlopen(request, timeout=120) as response:
+            payload = response.read()
+
+        _workbook_cache = load_workbook(io.BytesIO(payload), read_only=True, data_only=True)
+        _workbook_cache_at = now
+        _rows_cache = {}
+        return _workbook_cache
+
+
+def _worksheet_to_csv(worksheet) -> str:
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    for row in worksheet.iter_rows(values_only=True):
+        writer.writerow(["" if cell is None else cell for cell in row])
+    return buffer.getvalue()
 
 
 def _parse_csv(text: str) -> list[dict[str, str]]:
@@ -100,26 +137,30 @@ def _parse_csv(text: str) -> list[dict[str, str]]:
     return rows
 
 
-async def _fetch_sheet(key: str) -> list[dict[str, str]]:
-    now = time.time()
-    cached = _cache.get(key)
-    if cached and (now - cached[0]) < CACHE_TTL_SECONDS:
-        return cached[1]
-
-    url = SHEETS.get(key)
-    if not url:
+def _get_sheet_rows(key: str, *, force_refresh: bool = False) -> list[dict[str, str]]:
+    if key not in SHEET_TABS:
         raise HTTPException(status_code=404, detail=f"Unknown dataset: {key}")
 
-    try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Failed to fetch sheet: {exc}") from exc
+    now = time.time()
+    if not force_refresh:
+        cached = _rows_cache.get(key)
+        if cached and (now - cached[0]) < CACHE_TTL_SECONDS:
+            return cached[1]
 
-    rows = _parse_csv(response.text)
-    _cache[key] = (now, rows)
+    candidates = SHEET_TABS[key]
+    workbook = _load_workbook(force_refresh=force_refresh)
+    tab_name = _resolve_sheet_name(workbook.sheetnames, candidates)
+    if not tab_name:
+        raise HTTPException(status_code=404, detail=f"Workbook tab not found for {key}")
+
+    csv_text = _worksheet_to_csv(workbook[tab_name])
+    rows = _parse_csv(csv_text)
+    _rows_cache[key] = (now, rows)
     return rows
+
+
+async def _fetch_sheet(key: str) -> list[dict[str, str]]:
+    return await asyncio.to_thread(_get_sheet_rows, key)
 
 
 app = FastAPI(title="UNI Program Dashboard API")
@@ -139,14 +180,12 @@ async def health():
 
 @app.post("/api/refresh")
 async def refresh_cache():
-    _cache.clear()
+    await asyncio.to_thread(_clear_workbook_cache)
     return {"status": "ok", "message": "Cache cleared"}
 
 
 @app.get("/api/data/{dataset}")
 async def get_dataset(dataset: str):
-    if dataset not in SHEETS:
-        raise HTTPException(status_code=404, detail=f"Unknown dataset: {dataset}")
     rows = await _fetch_sheet(dataset)
     return {"dataset": dataset, "rows": rows, "count": len(rows)}
 
