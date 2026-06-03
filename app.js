@@ -51,9 +51,9 @@ const leaderFilters = Object.fromEntries(LEADER_CHART_KEYS.map((k) => [k, 'ALL']
 const leaderCohortFilters = Object.fromEntries(LEADER_CHART_KEYS.filter((k) => k.endsWith('-tc') || k.endsWith('-fc')).map((k) => [k, 'ALL']));
 const leaderMonthFilters = Object.fromEntries(LEADER_CHART_KEYS.filter((k) => k.endsWith('-tm') || k.endsWith('-fm')).map((k) => [k, 'ALL']));
 const leaderSorts = {
-  'tl-tc': 'pct-desc', 'tl-tm': 'pct-desc', 'tl-fc': 'ach-desc', 'tl-fm': 'ach-desc',
+  'tl-tc': 'ach-desc', 'tl-tm': 'ach-desc', 'tl-fc': 'ach-desc', 'tl-fm': 'ach-desc',
   'gm-tc': 'pct-desc', 'gm-tm': 'pct-desc', 'gm-fc': 'ach-desc', 'gm-fm': 'ach-desc',
-  'bda-tc': 'pct-desc', 'bda-tm': 'pct-desc', 'bda-fc': 'ach-desc', 'bda-fm': 'ach-desc',
+  'bda-tc': 'ach-desc', 'bda-tm': 'ach-desc', 'bda-fc': 'ach-desc', 'bda-fm': 'ach-desc',
 };
 
 function displayRaw(v) { if (v == null) return '—'; const s = String(v).trim(); return s || '—'; }
@@ -331,7 +331,15 @@ function renderLeaderList(chartKey) {
     return;
   }
 
+  const isTlOrBda = chartKey.startsWith('tl-') || chartKey.startsWith('bda-');
+
   listContainer.innerHTML = list.map((item) => {
+    if (isTlOrBda) {
+      return `<div class="leader-progress-row">
+        <div class="leader-row-name-wrap"><span class="leader-row-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span></div>
+        <div class="leader-row-values" style="width: auto; text-align: right;">${escapeHtml(item.achText)}</div>
+      </div>`;
+    }
     const pctRaw = Number.isFinite(item.pctNum) ? item.pctNum : 0;
     const barWidth = clamp(pctRaw, 0, 100);
     const badgeClass = pctRaw >= 90 ? 'green' : pctRaw >= 70 ? 'amber' : 'red';
@@ -412,7 +420,9 @@ function render() {
   renderCardsSection('tc'); renderCardsSection('tm'); renderCardsSection('fc'); renderCardsSection('fm');
   LEADER_CHART_KEYS.forEach(renderLeaderList);
   renderLeadershipBanner();
+  renderOverview();
 }
+
 
 function updateLastUpdated() {
   const now = new Date();
@@ -431,8 +441,17 @@ function onProgramChange(val) {
   });
   syncSectionDropdowns();
   LEADER_CHART_KEYS.forEach(syncLeaderDropdowns);
+  
+  const oPayment = document.getElementById('overview-filter-payment');
+  if (oPayment) {
+    document.getElementById('overview-filter-cohort').value = 'ALL';
+    document.getElementById('overview-filter-month').value = 'ALL';
+    syncOverviewDropdowns();
+  }
+  
   render();
 }
+
 
 function onSectionCohortChange(prefix, value) { sectionCohortFilters[prefix] = value; renderCardsSection(prefix); }
 function onSectionMonthChange(prefix, value) { sectionMonthFilters[prefix] = value; renderCardsSection(prefix); }
@@ -480,6 +499,7 @@ async function loadData(forceRefresh) {
     populateProgramDropdown();
     syncSectionDropdowns();
     LEADER_CHART_KEYS.forEach(syncLeaderDropdowns);
+    syncOverviewDropdowns();
     render();
     updateLastUpdated();
   } catch (err) {
@@ -499,3 +519,160 @@ function handleRefresh() {
 
 function init() { initTheme(); loadData(false); }
 document.addEventListener('DOMContentLoaded', init);
+
+/* ── PROGRAM OVERVIEW INTERACTION & RENDERING ────── */
+function syncOverviewDropdowns() {
+  if (!dataReady) return;
+  const paymentType = document.getElementById('overview-filter-payment').value;
+  const cohortSelect = document.getElementById('overview-filter-cohort');
+  const monthSelect = document.getElementById('overview-filter-month');
+  if (!cohortSelect || !monthSelect) return;
+
+  const datasetKey = paymentType === 'token' ? 'tokenCohort' : 'fpCohort';
+  const rows = sheetData[datasetKey] || [];
+  const cohorts = uniqueSorted(rows.map(r => r['Cohort Name'] || r['cohort']));
+
+  const currentCohort = cohortSelect.value;
+  cohortSelect.innerHTML = '<option value="ALL">All Cohorts</option>' + 
+    cohorts.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  if (currentCohort === 'ALL' || cohorts.includes(currentCohort)) {
+    cohortSelect.value = currentCohort;
+  } else {
+    cohortSelect.value = 'ALL';
+  }
+
+  const monthlyDatasetKey = paymentType === 'token' ? 'tokenMonthly' : 'fpMonthly';
+  const monthlyRows = sheetData[monthlyDatasetKey] || [];
+  const months = uniqueSorted(monthlyRows.map(r => r['Month'] || r['month']));
+
+  const currentMonth = monthSelect.value;
+  monthSelect.innerHTML = '<option value="ALL">All Months</option>' +
+    months.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+  if (currentMonth === 'ALL' || months.includes(currentMonth)) {
+    monthSelect.value = currentMonth;
+  } else {
+    monthSelect.value = 'ALL';
+  }
+}
+
+function renderOverview() {
+  const container = document.getElementById('overview-program-list');
+  if (!container) return;
+  if (!dataReady) {
+    container.innerHTML = '<div class="overview-no-data">Loading overview data...</div>';
+    return;
+  }
+
+  const paymentType = document.getElementById('overview-filter-payment').value;
+  const cohortVal = document.getElementById('overview-filter-cohort').value;
+  const monthVal = document.getElementById('overview-filter-month').value;
+
+  let rows = [];
+  let targetField = '';
+  let achField = '';
+
+  if (paymentType === 'token') {
+    if (monthVal === 'ALL') {
+      rows = sheetData.tokenCohort || [];
+      targetField = 'Cohort Token Target';
+      achField = 'Cohort Token Achieved';
+      if (cohortVal !== 'ALL') {
+        rows = rows.filter(r => (r['Cohort Name'] || '').trim() === cohortVal);
+      }
+    } else {
+      rows = sheetData.tokenMonthly || [];
+      targetField = 'Month Token Target';
+      achField = 'Month Token Achieved';
+      rows = rows.filter(r => (r['Month'] || '').trim() === monthVal);
+      if (cohortVal !== 'ALL') {
+        rows = rows.filter(r => (r['Cohort Name'] || '').trim() === cohortVal);
+      }
+    }
+  } else {
+    if (monthVal === 'ALL') {
+      rows = sheetData.fpCohort || [];
+      targetField = 'Cohort Enrollment Target';
+      achField = 'Cohort Enrollment Acheived';
+      if (cohortVal !== 'ALL') {
+        rows = rows.filter(r => (r['Cohort Name'] || '').trim() === cohortVal);
+      }
+    } else {
+      rows = sheetData.fpMonthly || [];
+      targetField = 'Month Enrollment Target';
+      achField = 'Month Enrollment Acheived';
+      rows = rows.filter(r => (r['Month'] || '').trim() === monthVal);
+      if (cohortVal !== 'ALL') {
+        rows = rows.filter(r => (r['Cohort Name'] || '').trim() === cohortVal);
+      }
+    }
+  }
+
+  const sectionHeader = document.getElementById('overview-section-header');
+  if (sectionHeader) {
+    if (paymentType === 'token') {
+      sectionHeader.className = 'section-header green-accent';
+    } else {
+      sectionHeader.className = 'section-header teal-accent';
+    }
+  }
+
+  const programs = activeProgram === 'ALL' ? (sheetData.programs || []) : [activeProgram];
+  if (!programs.length) {
+    container.innerHTML = '<div class="overview-no-data">No programs found</div>';
+    return;
+  }
+
+  const overviewHtml = programs.map(programName => {
+    const programRows = rows.filter(r => (r['Program Name'] || '').trim() === programName.trim());
+
+    let targetSum = 0;
+    let achSum = 0;
+    programRows.forEach(r => {
+      targetSum += parseNum(r[targetField]);
+      achSum += parseNum(r[achField]);
+    });
+
+    const progressPct = targetSum > 0 ? (achSum / targetSum) * 100 : 0;
+    const progressWidth = clamp(progressPct, 0, 100);
+    const progressColorClass = paymentType === 'token' ? 'token-fill' : 'full-fill';
+    
+    let targetText = '—';
+    let achText = '—';
+    let progressText = '—';
+
+    if (programRows.length > 0 || targetSum > 0 || achSum > 0) {
+      targetText = fmtNumExact(targetSum);
+      achText = fmtNumExact(achSum);
+      progressText = formatPctRounded(progressPct, 1);
+    }
+
+    return `
+      <div class="overview-row">
+        <div class="overview-program-name">${escapeHtml(programName)}</div>
+        <div class="overview-progress-container">
+          <div class="overview-progress-bar-wrap">
+            <div class="overview-progress-track">
+              <div class="overview-progress-fill ${progressColorClass}" style="width: ${progressWidth}%;"></div>
+            </div>
+            <div class="overview-progress-value">${escapeHtml(achText)} / ${escapeHtml(targetText)} <span class="leader-row-pct-badge ${progressColor(progressPct)}">${escapeHtml(progressText)}</span></div>
+          </div>
+        </div>
+        <div class="overview-target-wrap">
+          <span class="overview-target-label">Target</span>
+          <span class="overview-target-val">${escapeHtml(targetText)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = overviewHtml;
+}
+
+function onOverviewFilterChange() {
+  if (window.event && window.event.target && window.event.target.id === 'overview-filter-payment') {
+    document.getElementById('overview-filter-cohort').value = 'ALL';
+    document.getElementById('overview-filter-month').value = 'ALL';
+    syncOverviewDropdowns();
+  }
+  renderOverview();
+}

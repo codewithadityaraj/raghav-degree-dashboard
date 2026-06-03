@@ -923,4 +923,178 @@ html.dark .leader-slim-track {
 
 .leader-name-chip.placeholder::before {
   content: none;
+}
+
+/* ── PROGRAM OVERVIEW SECTION ───────────────────── */
+.overview-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: 100%;
+}
+
+.overview-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.overview-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.overview-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.overview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.overview-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 350px) 1fr 140px;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+}
+
+.overview-row:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  transform: translateX(4px);
+}
+
+.overview-program-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.overview-progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.overview-progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.overview-progress-track {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: var(--radius-pill);
+  position: relative;
+  overflow: hidden;
+}
+
+html.dark .overview-progress-track {
+  background: #1f293d;
+}
+
+.overview-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--accent);
+}
+
+.overview-progress-fill.token-fill {
+  background: linear-gradient(90deg, var(--green), #14b8a6);
+}
+
+.overview-progress-fill.full-fill {
+  background: linear-gradient(90deg, var(--teal), #06b6d4);
+}
+
+.overview-progress-value {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.overview-target-wrap {
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.overview-target-label {
+  font-size: 9px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.overview-target-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.overview-no-data {
+  text-align: center;
+  padding: 32px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .overview-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 16px;
+  }
+  .overview-target-wrap {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+/* ── TL AND BDA WISE LAYOUT OVERRIDES ───────────── */
+.tl-wise-section .leader-list-header-bar,
+.bda-wise-section .leader-list-header-bar {
+  display: none !important;
+}
+
+.tl-wise-section .leader-list-header-val,
+.bda-wise-section .leader-list-header-val {
+  width: auto !important;
+  font-size: 0 !important;
+}
+
+.tl-wise-section .leader-list-header-val::after,
+.bda-wise-section .leader-list-header-val::after {
+  content: 'Achievement' !important;
+  font-size: 10px !important;
 }

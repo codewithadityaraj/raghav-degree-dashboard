@@ -12,7 +12,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 
 <body>
@@ -73,6 +73,34 @@
 
     <!-- ══ MAIN DASHBOARD WRAPPER ═══════════════════════ -->
     <main class="dashboard-wrapper">
+
+      <!-- ── SECTION: PROGRAM OVERVIEW ────────────────── -->
+      <section class="dashboard-section">
+        <div class="overview-header-row">
+          <div class="section-header green-accent" id="overview-section-header">
+            <h2 class="section-title">Program Overview</h2>
+            <p class="section-subtitle">Aggregated target progress across all programs</p>
+          </div>
+          <div class="overview-filters">
+            <select id="overview-filter-payment" class="chart-card-select" onchange="onOverviewFilterChange()">
+              <option value="token">Token Payment</option>
+              <option value="full">Full Payment</option>
+            </select>
+            <select id="overview-filter-cohort" class="chart-card-select" onchange="onOverviewFilterChange()">
+              <option value="ALL">All Cohorts</option>
+            </select>
+            <select id="overview-filter-month" class="chart-card-select" onchange="onOverviewFilterChange()">
+              <option value="ALL">All Months</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overview-card">
+          <div class="overview-list" id="overview-program-list">
+            <!-- Dynamic program progress rows will be inserted here -->
+          </div>
+        </div>
+      </section>
 
       <!-- ── LEADERSHIP BANNER: GM & TL NAME ──────────── -->
       <div class="leadership-banner" id="leadership-banner">
@@ -545,151 +573,6 @@
         </div>
       </section>
 
-      <!-- ── SECTION 5: TL WISE ANALYTICS ─────────────── -->
-      <section class="dashboard-section">
-        <div class="section-header">
-          <h2 class="section-title">TL Wise Analytics</h2>
-          <p class="section-subtitle">Performance breakdown at Team Lead level across token and full payment metrics</p>
-        </div>
-
-        <div class="leadership-grid">
-          <!-- 1. Token Cohort TL Wise -->
-          <div class="chart-card-block">
-            <div class="chart-card-header">
-              <h3 class="chart-card-title">Token Cohort TL Wise</h3>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <select id="select-tl-tc-cohort" class="chart-card-select"
-                  onchange="onLeaderCohortFilterChange('tl-tc', this.value)">
-                  <option value="ALL">All Cohorts</option>
-                  <option value="2024-A">2024-A</option>
-                  <option value="2024-B">2024-B</option>
-                  <option value="2025-A">2025-A</option>
-                  <option value="2025-B">2025-B</option>
-                  <option value="2026-A">2026-A</option>
-                </select>
-                <select id="select-tl-tc" class="chart-card-select"
-                  onchange="onLeaderFilterChange('tl-tc', this.value)">
-                  <option value="ALL">All TLs</option>
-                </select>
-                <select id="sort-tl-tc" class="chart-card-select" onchange="onLeaderSortChange('tl-tc', this.value)">
-                  <option value="pct-desc">Sort: Progress %</option>
-                  <option value="ach-desc">Sort: High &rarr; Low</option>
-                  <option value="ach-asc">Sort: Low &rarr; High</option>
-                  <option value="name-asc">Sort: Name A-Z</option>
-                </select>
-              </div>
-            </div>
-            <div class="leader-list-header">
-              <span class="leader-list-header-name">Name</span>
-              <span class="leader-list-header-bar">Progress</span>
-              <span class="leader-list-header-val">Ach. / Target</span>
-            </div>
-            <div id="list-tl-tc" class="leader-progress-list"></div>
-          </div>
-
-          <!-- 2. Token Monthly TL Wise -->
-          <div class="chart-card-block">
-            <div class="chart-card-header">
-              <h3 class="chart-card-title">Token Monthly TL Wise</h3>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <select id="select-tl-tm-month" class="chart-card-select"
-                  onchange="onLeaderMonthFilterChange('tl-tm', this.value)">
-                  <option value="ALL">All Months</option>
-                  <option value="Jan">January</option>
-                  <option value="Feb">February</option>
-                  <option value="Mar">March</option>
-                  <option value="Apr">April</option>
-                  <option value="May">May</option>
-                  <option value="Jun">June</option>
-                </select>
-                <select id="select-tl-tm" class="chart-card-select"
-                  onchange="onLeaderFilterChange('tl-tm', this.value)">
-                  <option value="ALL">All TLs</option>
-                </select>
-                <select id="sort-tl-tm" class="chart-card-select" onchange="onLeaderSortChange('tl-tm', this.value)">
-                  <option value="pct-desc">Sort: Progress %</option>
-                  <option value="ach-desc">Sort: High &rarr; Low</option>
-                  <option value="ach-asc">Sort: Low &rarr; High</option>
-                  <option value="name-asc">Sort: Name A-Z</option>
-                </select>
-              </div>
-            </div>
-            <div class="leader-list-header">
-              <span class="leader-list-header-name">Name</span>
-              <span class="leader-list-header-bar">Progress</span>
-              <span class="leader-list-header-val">Ach. / Target</span>
-            </div>
-            <div id="list-tl-tm" class="leader-progress-list"></div>
-          </div>
-
-          <!-- 3. Full Payment Cohort TL Wise -->
-          <div class="chart-card-block">
-            <div class="chart-card-header">
-              <h3 class="chart-card-title">Full Payment Cohort TL Wise</h3>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <select id="select-tl-fc-cohort" class="chart-card-select"
-                  onchange="onLeaderCohortFilterChange('tl-fc', this.value)">
-                  <option value="ALL">All Cohorts</option>
-                  <option value="2024-A">2024-A</option>
-                  <option value="2024-B">2024-B</option>
-                  <option value="2025-A">2025-A</option>
-                  <option value="2025-B">2025-B</option>
-                  <option value="2026-A">2026-A</option>
-                </select>
-                <select id="select-tl-fc" class="chart-card-select"
-                  onchange="onLeaderFilterChange('tl-fc', this.value)">
-                  <option value="ALL">All TLs</option>
-                </select>
-                <select id="sort-tl-fc" class="chart-card-select" onchange="onLeaderSortChange('tl-fc', this.value)">
-                  <option value="ach-desc">Sort: High &rarr; Low</option>
-                  <option value="ach-asc">Sort: Low &rarr; High</option>
-                  <option value="name-asc">Sort: Name A-Z</option>
-                </select>
-              </div>
-            </div>
-            <div class="leader-list-header">
-              <span class="leader-list-header-name">Name</span>
-              <span class="leader-list-header-bar">Progress</span>
-              <span class="leader-list-header-val">Achievement</span>
-            </div>
-            <div id="list-tl-fc" class="leader-progress-list"></div>
-          </div>
-
-          <!-- 4. Full Payment Monthly TL Wise -->
-          <div class="chart-card-block">
-            <div class="chart-card-header">
-              <h3 class="chart-card-title">Full Payment Monthly TL Wise</h3>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <select id="select-tl-fm-month" class="chart-card-select"
-                  onchange="onLeaderMonthFilterChange('tl-fm', this.value)">
-                  <option value="ALL">All Months</option>
-                  <option value="Jan">January</option>
-                  <option value="Feb">February</option>
-                  <option value="Mar">March</option>
-                  <option value="Apr">April</option>
-                  <option value="May">May</option>
-                  <option value="Jun">June</option>
-                </select>
-                <select id="select-tl-fm" class="chart-card-select"
-                  onchange="onLeaderFilterChange('tl-fm', this.value)">
-                  <option value="ALL">All TLs</option>
-                </select>
-                <select id="sort-tl-fm" class="chart-card-select" onchange="onLeaderSortChange('tl-fm', this.value)">
-                  <option value="ach-desc">Sort: High &rarr; Low</option>
-                  <option value="ach-asc">Sort: Low &rarr; High</option>
-                  <option value="name-asc">Sort: Name A-Z</option>
-                </select>
-              </div>
-            </div>
-            <div class="leader-list-header">
-              <span class="leader-list-header-name">Name</span>
-              <span class="leader-list-header-bar">Progress</span>
-              <span class="leader-list-header-val">Achievement</span>
-            </div>
-            <div id="list-tl-fm" class="leader-progress-list"></div>
-          </div>
-        </div>
-      </section>
 
       <!-- ── SECTION 6: GM WISE ANALYTICS ─────────────── -->
       <section class="dashboard-section">
@@ -838,8 +721,154 @@
         </div>
       </section>
 
+      <!-- ── SECTION 5: TL WISE ANALYTICS ─────────────── -->
+      <section class="dashboard-section tl-wise-section">
+        <div class="section-header">
+          <h2 class="section-title">TL Wise Analytics</h2>
+          <p class="section-subtitle">Performance breakdown at Team Lead level across token and full payment metrics</p>
+        </div>
+
+        <div class="leadership-grid">
+          <!-- 1. Token Cohort TL Wise -->
+          <div class="chart-card-block">
+            <div class="chart-card-header">
+              <h3 class="chart-card-title">Token Cohort TL Wise</h3>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <select id="select-tl-tc-cohort" class="chart-card-select"
+                  onchange="onLeaderCohortFilterChange('tl-tc', this.value)">
+                  <option value="ALL">All Cohorts</option>
+                  <option value="2024-A">2024-A</option>
+                  <option value="2024-B">2024-B</option>
+                  <option value="2025-A">2025-A</option>
+                  <option value="2025-B">2025-B</option>
+                  <option value="2026-A">2026-A</option>
+                </select>
+                <select id="select-tl-tc" class="chart-card-select"
+                  onchange="onLeaderFilterChange('tl-tc', this.value)">
+                  <option value="ALL">All TLs</option>
+                </select>
+                <select id="sort-tl-tc" class="chart-card-select" onchange="onLeaderSortChange('tl-tc', this.value)">
+                  <!-- <option value="pct-desc">Sort: Progress %</option> -->
+                  <option value="ach-desc">Sort: High &rarr; Low</option>
+                  <option value="ach-asc">Sort: Low &rarr; High</option>
+                  <option value="name-asc">Sort: Name A-Z</option>
+                </select>
+              </div>
+            </div>
+            <div class="leader-list-header">
+              <span class="leader-list-header-name">Name</span>
+              <span class="leader-list-header-bar">Progress</span>
+              <span class="leader-list-header-val">Ach. / Target</span>
+            </div>
+            <div id="list-tl-tc" class="leader-progress-list"></div>
+          </div>
+
+          <!-- 2. Token Monthly TL Wise -->
+          <div class="chart-card-block">
+            <div class="chart-card-header">
+              <h3 class="chart-card-title">Token Monthly TL Wise</h3>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <select id="select-tl-tm-month" class="chart-card-select"
+                  onchange="onLeaderMonthFilterChange('tl-tm', this.value)">
+                  <option value="ALL">All Months</option>
+                  <option value="Jan">January</option>
+                  <option value="Feb">February</option>
+                  <option value="Mar">March</option>
+                  <option value="Apr">April</option>
+                  <option value="May">May</option>
+                  <option value="Jun">June</option>
+                </select>
+                <select id="select-tl-tm" class="chart-card-select"
+                  onchange="onLeaderFilterChange('tl-tm', this.value)">
+                  <option value="ALL">All TLs</option>
+                </select>
+                <select id="sort-tl-tm" class="chart-card-select" onchange="onLeaderSortChange('tl-tm', this.value)">
+                  <!-- <option value="pct-desc">Sort: Progress %</option> -->
+                  <option value="ach-desc">Sort: High &rarr; Low</option>
+                  <option value="ach-asc">Sort: Low &rarr; High</option>
+                  <option value="name-asc">Sort: Name A-Z</option>
+                </select>
+              </div>
+            </div>
+            <div class="leader-list-header">
+              <span class="leader-list-header-name">Name</span>
+              <span class="leader-list-header-bar">Progress</span>
+              <span class="leader-list-header-val">Ach. / Target</span>
+            </div>
+            <div id="list-tl-tm" class="leader-progress-list"></div>
+          </div>
+
+          <!-- 3. Full Payment Cohort TL Wise -->
+          <div class="chart-card-block">
+            <div class="chart-card-header">
+              <h3 class="chart-card-title">Full Payment Cohort TL Wise</h3>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <select id="select-tl-fc-cohort" class="chart-card-select"
+                  onchange="onLeaderCohortFilterChange('tl-fc', this.value)">
+                  <option value="ALL">All Cohorts</option>
+                  <option value="2024-A">2024-A</option>
+                  <option value="2024-B">2024-B</option>
+                  <option value="2025-A">2025-A</option>
+                  <option value="2025-B">2025-B</option>
+                  <option value="2026-A">2026-A</option>
+                </select>
+                <select id="select-tl-fc" class="chart-card-select"
+                  onchange="onLeaderFilterChange('tl-fc', this.value)">
+                  <option value="ALL">All TLs</option>
+                </select>
+                <select id="sort-tl-fc" class="chart-card-select" onchange="onLeaderSortChange('tl-fc', this.value)">
+                  <option value="ach-desc">Sort: High &rarr; Low</option>
+                  <option value="ach-asc">Sort: Low &rarr; High</option>
+                  <option value="name-asc">Sort: Name A-Z</option>
+                </select>
+              </div>
+            </div>
+            <div class="leader-list-header">
+              <span class="leader-list-header-name">Name</span>
+              <span class="leader-list-header-bar">Progress</span>
+              <span class="leader-list-header-val">Achievement</span>
+            </div>
+            <div id="list-tl-fc" class="leader-progress-list"></div>
+          </div>
+
+          <!-- 4. Full Payment Monthly TL Wise -->
+          <div class="chart-card-block">
+            <div class="chart-card-header">
+              <h3 class="chart-card-title">Full Payment Monthly TL Wise</h3>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <select id="select-tl-fm-month" class="chart-card-select"
+                  onchange="onLeaderMonthFilterChange('tl-fm', this.value)">
+                  <option value="ALL">All Months</option>
+                  <option value="Jan">January</option>
+                  <option value="Feb">February</option>
+                  <option value="Mar">March</option>
+                  <option value="Apr">April</option>
+                  <option value="May">May</option>
+                  <option value="Jun">June</option>
+                </select>
+                <select id="select-tl-fm" class="chart-card-select"
+                  onchange="onLeaderFilterChange('tl-fm', this.value)">
+                  <option value="ALL">All TLs</option>
+                </select>
+                <select id="sort-tl-fm" class="chart-card-select" onchange="onLeaderSortChange('tl-fm', this.value)">
+                  <option value="ach-desc">Sort: High &rarr; Low</option>
+                  <option value="ach-asc">Sort: Low &rarr; High</option>
+                  <option value="name-asc">Sort: Name A-Z</option>
+                </select>
+              </div>
+            </div>
+            <div class="leader-list-header">
+              <span class="leader-list-header-name">Name</span>
+              <span class="leader-list-header-bar">Progress</span>
+              <span class="leader-list-header-val">Achievement</span>
+            </div>
+            <div id="list-tl-fm" class="leader-progress-list"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- ── SECTION 7: BDA WISE ANALYTICS ────────────── -->
-      <section class="dashboard-section">
+      <section class="dashboard-section bda-wise-section">
         <div class="section-header">
           <h2 class="section-title">BDA Wise Analytics</h2>
           <p class="section-subtitle">Performance breakdown at Business Development Associate level across token and
@@ -861,7 +890,7 @@
                   <option value="ALL">All BDAs</option>
                 </select>
                 <select id="sort-bda-tc" class="chart-card-select" onchange="onLeaderSortChange('bda-tc', this.value)">
-                  <option value="pct-desc">Sort: Progress %</option>
+                  <!-- <option value="pct-desc">Sort: Progress %</option> -->
                   <option value="ach-desc">Sort: High &rarr; Low</option>
                   <option value="ach-asc">Sort: Low &rarr; High</option>
                   <option value="name-asc">Sort: Name A-Z</option>
@@ -890,7 +919,7 @@
                   <option value="ALL">All BDAs</option>
                 </select>
                 <select id="sort-bda-tm" class="chart-card-select" onchange="onLeaderSortChange('bda-tm', this.value)">
-                  <option value="pct-desc">Sort: Progress %</option>
+                  <!-- <option value="pct-desc">Sort: Progress %</option> -->
                   <option value="ach-desc">Sort: High &rarr; Low</option>
                   <option value="ach-asc">Sort: Low &rarr; High</option>
                   <option value="name-asc">Sort: Name A-Z</option>
@@ -968,7 +997,7 @@
   </div>
 
   <!-- JavaScript Entrypoint -->
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=6"></script>
 </body>
 
 </html>
