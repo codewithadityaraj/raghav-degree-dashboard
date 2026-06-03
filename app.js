@@ -1,11 +1,31 @@
 /* ══════════════════════════════════════════════════
    UNI PROGRAM DASHBOARD — app.js
-   Dynamic data from Google Sheets via local Python API
+   CSV-backed dynamic dashboard integration
    ══════════════════════════════════════════════════ */
 
 'use strict';
 
-const API_BASE = '';
+const DATA_SOURCES = {
+  tokenCohort: 'tokenCohort',
+  tokenMonthly: 'tokenMonthly',
+  fpCohort: 'fpCohort',
+  fpMonthly: 'fpMonthly',
+  tlTokenCohort: 'tlTokenCohort',
+  tlTokenMonthly: 'tlTokenMonthly',
+  tlFpCohort: 'tlFpCohort',
+  tlFpMonthly: 'tlFpMonthly',
+  gmTokenCohort: 'gmTokenCohort',
+  gmTokenMonthly: 'gmTokenMonthly',
+  gmFpCohort: 'gmFpCohort',
+  gmFpMonthly: 'gmFpMonthly',
+  bdaTokenCohort: 'bdaTokenCohort',
+  bdaTokenMonthly: 'bdaTokenMonthly',
+  bdaFpCohort: 'bdaFpCohort',
+  bdaFpMonthly: 'bdaFpMonthly',
+};
+
+const DATA_SOURCE_KEYS = Object.keys(DATA_SOURCES);
+const csvCache = new Map();
 
 const SECTION_CONFIG = {
   tc: { dataset: 'tokenCohort', dimField: 'cohort', dimColumn: 'Cohort Name', selectId: 'select-sec-tc-cohort', allLabel: 'All Cohorts', perHeadField: 'Cohort Per Head Token', teamSizeField: 'Cohort Team Size', fields: { cohortTarget: 'Cohort Token Target', cohortAch: 'Cohort Token Achieved', achPct: 'Cohort Token Achievement %', revTarget: 'Cohort Token Revenue Target', revAch: 'Cohort Token Revenue Achieved', revPct: 'Cohort Token Revenue Achievement %' } },
@@ -104,11 +124,65 @@ function fmtCroreExact(val) {
   return '₹' + (num / 10000000).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'Cr';
 }
 
-async function fetchDashboard(forceRefresh) {
-  if (forceRefresh) await fetch(`${API_BASE}/api/refresh`, { method: 'POST' });
-  const res = await fetch(`${API_BASE}/api/dashboard`);
-  if (!res.ok) throw new Error(`API error ${res.status}`);
-  return res.json();
+function parseCSV(text) {
+  const lines = text.replace(/\r/g, '').split('\n').filter((line) => line.trim().length > 0);
+  if (!lines.length) return [];
+  const splitRow = (line) => {
+    const out = [];
+    let current = '';
+    let quoted = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+      const next = line[i + 1];
+      if (char === '"' && quoted && next === '"') {
+        current += '"';
+        i += 1;
+      } else if (char === '"') {
+        quoted = !quoted;
+      } else if (char === ',' && !quoted) {
+        out.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    out.push(current);
+    return out.map((cell) => cell.trim());
+  };
+  const headers = splitRow(lines[0]);
+  return lines.slice(1).map((line) => {
+    const cols = splitRow(line);
+    const row = {};
+    headers.forEach((header, idx) => {
+      if (!header) return;
+      const val = cols[idx] == null ? '' : cols[idx];
+      if (!(header in row)) row[header] = val;
+    });
+    return row;
+  }).filter((row) => Object.values(row).some((val) => String(val || '').trim()));
+}
+
+async function fetchCSV(sheetKey, forceRefresh = false) {
+  if (!forceRefresh && csvCache.has(sheetKey)) return csvCache.get(sheetKey);
+  const promise = (async () => {
+    const params = new URLSearchParams({ sheet: sheetKey });
+    if (forceRefresh) params.set('refresh', '1');
+    const response = await fetch(`/api/sheets?${params.toString()}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Function fetch failed: ${response.status}`);
+    const payload = await response.json();
+    if (!payload || !payload.csv) throw new Error('Invalid function payload');
+    return parseCSV(payload.csv);
+  })();
+  csvCache.set(sheetKey, promise);
+  return promise;
+}
+
+function derivePrograms() {
+  const names = uniqueSorted(
+    (sheetData.tokenCohort || []).map(rowProgram)
+      .concat((sheetData.tokenMonthly || []).map(rowProgram))
+  );
+  return names;
 }
 
 function getDatasetRows(datasetKey) { return sheetData[datasetKey] || []; }
@@ -354,7 +428,7 @@ function renderLeaderList(chartKey) {
 function populateProgramDropdown() {
   const select = document.getElementById('program-filter');
   if (!select) return;
-  const programs = sheetData.programs || [];
+  const programs = derivePrograms();
   select.innerHTML =
     '<option value="ALL">All Programs</option>' +
     programs.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
@@ -480,31 +554,38 @@ function initTheme() {
   }
 }
 
-async function loadData(forceRefresh) {
+async function loadData(forceRefresh = false) {
   setLoading(true);
+  if (forceRefresh) csvCache.clear();
   try {
-    const payload = await fetchDashboard(forceRefresh);
-    sheetData = {
-      programs: payload.programs || [],
-      tokenCohort: payload.tokenCohort || [], tokenMonthly: payload.tokenMonthly || [],
-      fpCohort: payload.fpCohort || [], fpMonthly: payload.fpMonthly || [],
-      tlTokenCohort: payload.tlTokenCohort || [], tlTokenMonthly: payload.tlTokenMonthly || [],
-      tlFpCohort: payload.tlFpCohort || [], tlFpMonthly: payload.tlFpMonthly || [],
-      gmTokenCohort: payload.gmTokenCohort || [], gmTokenMonthly: payload.gmTokenMonthly || [],
-      gmFpCohort: payload.gmFpCohort || [], gmFpMonthly: payload.gmFpMonthly || [],
-      bdaTokenCohort: payload.bdaTokenCohort || [], bdaTokenMonthly: payload.bdaTokenMonthly || [],
-      bdaFpCohort: payload.bdaFpCohort || [], bdaFpMonthly: payload.bdaFpMonthly || [],
-    };
-    dataReady = true;
+    const settled = await Promise.allSettled(
+      DATA_SOURCE_KEYS.map((key) => fetchCSV(key, forceRefresh))
+    );
+    let successCount = 0;
+    settled.forEach((result, idx) => {
+      const key = DATA_SOURCE_KEYS[idx];
+      if (result.status === 'fulfilled') {
+        sheetData[key] = result.value;
+        successCount += 1;
+      } else {
+        sheetData[key] = [];
+        console.warn(`Failed loading ${key}:`, result.reason);
+      }
+    });
+    sheetData.programs = derivePrograms();
+    dataReady = successCount > 0;
     populateProgramDropdown();
     syncSectionDropdowns();
     LEADER_CHART_KEYS.forEach(syncLeaderDropdowns);
     syncOverviewDropdowns();
     render();
     updateLastUpdated();
+    if (!dataReady) {
+      setText('last-updated-text', 'Failed to load data — check server or Netlify function');
+    }
   } catch (err) {
     console.error(err);
-    setText('last-updated-text', 'Failed to load data — is the server running?');
+    setText('last-updated-text', 'Failed to load data — check server or Netlify function');
     dataReady = false;
   } finally {
     setLoading(false);
@@ -616,7 +697,7 @@ function renderOverview() {
     }
   }
 
-  const programs = activeProgram === 'ALL' ? (sheetData.programs || []) : [activeProgram];
+  const programs = activeProgram === 'ALL' ? derivePrograms() : [activeProgram];
   if (!programs.length) {
     container.innerHTML = '<div class="overview-no-data">No programs found</div>';
     return;
