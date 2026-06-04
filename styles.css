@@ -978,6 +978,13 @@ html.dark .leader-slim-track {
   transform: translateX(4px);
 }
 
+.overview-program-name-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
 .overview-program-name {
   font-size: 13px;
   font-weight: 700;
@@ -985,6 +992,45 @@ html.dark .leader-slim-track {
   line-height: 1.45;
   white-space: normal;
   word-break: break-word;
+}
+
+/* TL chips row below the program name */
+.overview-tl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.overview-tl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--purple);
+  background: var(--purple-light);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  transition: var(--transition-fast);
+}
+
+.overview-tl-chip::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  background: var(--purple);
+  border-radius: 50%;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.overview-row:hover .overview-tl-chip {
+  background: var(--purple-light);
+  border-color: rgba(124, 58, 237, 0.3);
 }
 
 .overview-progress-container {

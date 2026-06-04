@@ -515,14 +515,14 @@ function onProgramChange(val) {
   });
   syncSectionDropdowns();
   LEADER_CHART_KEYS.forEach(syncLeaderDropdowns);
-  
+
   const oPayment = document.getElementById('overview-filter-payment');
   if (oPayment) {
     document.getElementById('overview-filter-cohort').value = 'ALL';
     document.getElementById('overview-filter-month').value = 'ALL';
     syncOverviewDropdowns();
   }
-  
+
   render();
 }
 
@@ -614,7 +614,7 @@ function syncOverviewDropdowns() {
   const cohorts = uniqueSorted(rows.map(r => r['Cohort Name'] || r['cohort']));
 
   const currentCohort = cohortSelect.value;
-  cohortSelect.innerHTML = '<option value="ALL">All Cohorts</option>' + 
+  cohortSelect.innerHTML = '<option value="ALL">All Cohorts</option>' +
     cohorts.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   if (currentCohort === 'ALL' || cohorts.includes(currentCohort)) {
     cohortSelect.value = currentCohort;
@@ -716,7 +716,7 @@ function renderOverview() {
     const progressPct = targetSum > 0 ? (achSum / targetSum) * 100 : 0;
     const progressWidth = clamp(progressPct, 0, 100);
     const progressColorClass = paymentType === 'token' ? 'token-fill' : 'full-fill';
-    
+
     let targetText = '—';
     let achText = '—';
     let progressText = '—';
@@ -727,9 +727,23 @@ function renderOverview() {
       progressText = formatPctRounded(progressPct, 1);
     }
 
+    // Gather unique TL names for this program
+    const tlRows = (sheetData.tlTokenCohort || []).filter(r => (r['Program Name'] || '').trim() === programName.trim());
+    const tlNames = [];
+    tlRows.forEach(r => {
+      const v = (r['TL NAME'] || '').trim();
+      if (v && !tlNames.includes(v)) tlNames.push(v);
+    });
+    const tlChipsHtml = tlNames.length
+      ? `<div class="overview-tl-chips">${tlNames.map(name => `<span class="overview-tl-chip">${escapeHtml(name)}</span>`).join('')}</div>`
+      : '';
+
     return `
       <div class="overview-row">
-        <div class="overview-program-name">${escapeHtml(programName)}</div>
+        <div class="overview-program-name-wrap">
+          <div class="overview-program-name">${escapeHtml(programName)}</div>
+          ${tlChipsHtml}
+        </div>
         <div class="overview-progress-container">
           <div class="overview-progress-bar-wrap">
             <div class="overview-progress-track">
